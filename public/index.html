@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="./css/style.css">
+    <title>Let's Yap!</title>
+</head>
+<body>
+    <div class="index">
+        <header>
+            <h1>Let's Yap!</h1>
+            <p>This is a realtime chat server dedicated to all my fellow yappers. To start yapping, simply create a username and then feel free to join an existing room or create your own public/private room :D</p>
+        </header>
+        <div class="login-container">
+            <form id="loginForm">
+                <label for="username">Username:</label><br>
+                <input type="text" id="username" name="username" required><br>
+                <label for="create">Create A Room:</label><br>
+                <input type="text" id="create" name="create"><br>
+                <h5>Already have a room in mind? Join an existing room below:</h5>
+                <div class="dropdown">
+                    <button type="button" onclick="toggleDropdown(event)" class="dropdownBtn">Join A Room</button>
+                    <div id="roomDropdown" class="dropdown-content">
+                        <input type="text" placeholder="Search..." id="myInput" onkeyup="filterRooms()">
+                    </div>
+                    <input type="text" id="selectedRoom" style="display: none; margin-top: 15px;" disabled>
+                </div>
+                <input id="submit" type="submit" value="Join/Create"> 
+            </form>
+        </div>
+    </div>
+
+    <!-- Popup Modal -->
+    <div id="popupModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <p>Do you want the room to be public or private?</p>
+            <button id="publicRoom">Public</button>
+            <button id="privateRoom">Private</button>
+            <div id="passwordInput" style="display: none;">
+                <label for="roomPassword">Room Password:</label>
+                <input type="password" id="roomPassword">
+            </div>
+            <button id="confirmRoom" style="display: none;">Confirm</button>
+        </div>
+    </div>
+
+    <!-- Actual Chatbox -->
+    <div class="container" style="display: none;">
+        <div class="sidebar">
+            <button id="disconnectBtn">Disconnect</button>
+            <button id="joinBtn">Join A New Room</button>
+            <h5>Active Users:</h5>
+            <div class="users"></div>
+        </div>
+        <div class="chat-container">
+            <div id="chatlog"></div>
+            <div class="input-box">
+                <input type="text" placeholder="Type your message here..." id="message-input" name="message-input">
+                <button id="sendBtn">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+
+        // listen for 'roomList' call from the server that will return the keys in roomList{} to us
+        socket.on('roomList', (rooms) => {
+            const roomDropdown = document.getElementById('roomDropdown');
+            roomDropdown.innerHTML = '<input type="text" placeholder="Search..." id="myInput" onkeyup="filterRooms()">';
+            
+            // create a link for every room name in roomList{} and show the room in the dropdown
+            rooms.forEach(room => {
+                const roomLink = document.createElement('a');
+                roomLink.textContent = room;
+                roomLink.addEventListener('click', () => {
+                    // show the room name in a input box if clicked on
+                    const selectedRoom = document.getElementById('selectedRoom')
+                    selectedRoom.placeholder = "Room Selected: " + roomLink.textContent;
+                    selectedRoom.style.display = 'block';
+                    roomDropdown.classList.remove('show');
+                });
+                roomDropdown.appendChild(roomLink);
+            });
+        });
+
+        // function to toggle the room dropdown menu
+        function toggleDropdown(event) {
+            event.stopPropagation(); // prevents further propagation of the current event (from mdn web docs)
+            var dropdown = document.getElementById("roomDropdown");
+            dropdown.classList.toggle('show');
+            if (dropdown.classList.contains('show')) {
+                // make a 'getRooms' call to the server
+                socket.emit('getRooms');
+            }
+        }
+
+        // function to close the dropdown if the user clicked out of it
+        function closeDropdownOnOutsideClick(event) {
+            var dropdown = document.getElementById("roomDropdown");
+            if (!dropdown.contains(event.target) && dropdown.classList.contains('show')) {
+                dropdown.classList.remove('show');
+            }
+        }
+
+        document.addEventListener("click", closeDropdownOnOutsideClick);
+
+        // Function to filter rooms
+        function filterRooms() {
+            var input, filter, ul, li, a, i;
+            input = document.getElementById("myInput");
+            filter = input.value.toUpperCase();
+            var roomSelect = document.getElementById("room-select");
+            var options = roomSelect.getElementsByTagName("option");
+            for (i = 0; i < options.length; i++) {
+                var txtValue = options[i].textContent || options[i].innerText;
+                if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                    options[i].style.display = "";
+                } else {
+                    options[i].style.display = "none";
+                }
+            }
+        }
+
+        // Attach filterRooms function to the input event
+        document.getElementById('myInput').addEventListener('input', filterRooms);
+
+        // event listener for when the user clicks on the submit button in the form
+        document.getElementById('loginForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            // grab the inputted data
+            const username = document.getElementById('username').value;
+            const createRoom = document.getElementById('create').value;
+            const selectedRoom = document.getElementById('selectedRoom').placeholder.replace('Room Selected: ', '');
+
+            // ensure that only one of the "Create A Room" or "Join A Room" is filled
+            if (createRoom && selectedRoom) {
+                alert('Please either create a new room or join an existing room, not both.');
+                return;
+            } else if (!createRoom && !selectedRoom) {
+                alert('Please either create a new room or join an existing room.');
+                return;
+            }
+
+            // if the user is creating a new room, show the popupModal. otherwise, make a 'joinRoom' call to the server
+            if (createRoom) {
+                document.getElementById('popupModal').style.display = 'block';
+                window.tempUserData = {username, createRoom};
+            } else {
+                const room = selectedRoom;
+                socket.emit('joinRoom', {username, room});
+                goToChat();
+            }
+        });
+
+        // if the close markup is clicked on in the modal, hide the modal
+        document.querySelector('.close').addEventListener('click', () => {
+            document.getElementById('popupModal').style.display = 'none';
+            window.tempUserData = null;
+        });
+
+        // in the modal, if the created room is public, make a 'createRoom' call to the server with isPublic set to true
+        document.getElementById('publicRoom').addEventListener('click', () => {
+            const { username, createRoom } = window.tempUserData;
+            socket.emit('createRoom', { username, room: createRoom, isPublic: true });
+            closeModal(); // call closeModal to hide everything in the modal
+            goToChat(); // go to chat.html
+        });
+
+        // in the modal, if the created room is private, show the password input box and the confirm room box
+        document.getElementById('privateRoom').addEventListener('click', () => {
+            document.getElementById('passwordInput').style.display = 'block';
+            document.getElementById('confirmRoom').style.display = 'block';
+        });
+
+        // in the modal, if the confirm room box is clicked, send a 'createRoom' call to the server with isPublic set to false and password set to what the user inputted
+        document.getElementById('confirmRoom').addEventListener('click', () => {
+            const password = document.getElementById('roomPassword').value;
+            const { username, createRoom } = window.tempUserData;
+            socket.emit('createRoom', { username, room: createRoom, isPublic: false, password });
+            closeModal(); // call closeModal to hide everything in the modal
+            goToChat(); // go to chat.html
+        });
+
+        // function to hide the modal
+        function closeModal() {
+            document.getElementById('popupModal').style.display = 'none';
+            document.getElementById('passwordInput').style.display = 'none';
+            document.getElementById('confirmRoom').style.display = 'none';
+            window.tempUserData = null;
+        }
+
+        // show the chat room
+        function goToChat() {
+            document.querySelector('.index').style.display = 'none';
+            document.querySelector('.container').style.display = 'flex';
+        }
+
+        // CHAT ROOM SCRIPTS
+        // Handle incoming messages
+        socket.on('message', (message) => {
+            displayMessage(message);
+        });
+
+        // Send message on button click
+        const sendBtn = document.getElementById('sendBtn');
+        const messageInput = document.getElementById('message-input');
+        
+        sendBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const message = messageInput.value;
+            if (message.trim()) {
+                socket.emit('chatMessage', message);
+                messageInput.value = ''; // Clear the input
+            }
+        });
+
+        // Listen for 'updateUserList' call from the server
+        socket.on('updateUserList', (users) => {
+            const usersDiv = document.querySelector('.users');
+            usersDiv.innerHTML = ''; // Clear the list
+            users.forEach(user => {
+                const userElement = document.createElement('div');
+                userElement.textContent = user;
+                usersDiv.appendChild(userElement);
+            });
+        });
+
+        // Add event listener for the disconnect button
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        if (disconnectBtn) {
+            disconnectBtn.addEventListener('click', () => {
+                socket.disconnect();
+                document.querySelector('.index').style.display = 'block';
+                document.querySelector('.container').style.display = 'none';
+            });
+        }
+
+
+        function displayMessage(message) {
+            console.log(message);
+            const chatlog = document.getElementById('chatlog');
+            const messageElement = document.createElement('div');
+            messageElement.textContent = message;
+            chatlog.appendChild(messageElement);
+            chatlog.scrollTop = chatlog.scrollHeight; // Scroll to the bottom
+        }
+    </script>
+</body>
+</html>

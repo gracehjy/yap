@@ -1,0 +1,230 @@
+@import url(https://fonts.googleapis.com/css?family=Poppins);
+
+body{
+   font-family: 'Poppins',serif;
+   font-size: 16px;
+   margin: 0;
+   padding: 0;
+   box-sizing: border-box;
+}
+
+header {
+    max-width: 430px;
+    margin-left: auto;
+    margin-right: auto;
+    text-align: center;
+}
+
+h1 {
+    margin-top: 18%;
+}
+
+p {
+    margin-bottom: 50px;
+}
+
+.login-container {
+    background-color: rgb(117, 198, 173);
+    padding: 24px;
+    width: 400px;
+    height: max-content;
+    margin: auto;
+    display: flex;
+    justify-content: center;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+input {
+    border-radius: 5px;
+    border: none;
+    padding: 10px;
+    width: 100%;
+    margin: 5px 0 10px;
+    box-sizing: border-box;
+}
+
+input:focus {
+    outline: 2px solid #04AA6D;
+}
+
+h5 {
+    margin: 8px 0;
+}
+
+/* Dropdown Button */
+.dropdownBtn {
+    margin-top: -8px;
+    background-color: #04AA6D;
+    color: white;
+    padding: 12px;
+    border: none;
+    cursor: pointer;
+    border-radius: 5px;
+    text-align: center;
+}
+  
+/* Dropdown button on hover & focus */
+.dropdownBtn:hover, .dropbtn:focus {
+    background-color: #00925d;
+}
+
+/* The search field */
+#myInput {
+    box-sizing: border-box;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-bottom: 1px solid #ddd;
+    width: 100%;
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+/* The container <div> - needed to position the dropdown content */
+.dropdown {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+    margin-top: 10px;
+}
+
+/* Dropdown Content (Hidden by Default) */
+.dropdown-content {
+    display: none;
+    position: absolute;
+    background-color: #f6f6f6;
+    min-width: 230px;
+    border: 1px solid #ddd;
+    z-index: 1;
+    box-sizing: border-box;
+    border-radius: 5px;
+    margin-top: 5px;
+}
+
+/* Links inside the dropdown */
+.dropdown-content a {
+    color: black;
+    text-decoration: none;
+    padding: 8px;
+    display: block;
+    border: 0.1px solid #ddd;
+    font-size: 14px;
+}
+
+/* Change color of dropdown links on hover */
+.dropdown-content a:hover {
+    background-color: #f1f1f1
+}
+
+/* Show the dropdown menu (use JS to add this class to the .dropdown-content container when the user clicks on the dropdown button) */
+.show {
+    display: block;
+}
+
+#submit {
+    margin-top: 18px;
+}
+
+#submit:hover {
+    cursor: pointer;
+    background-color: #e3e2e2;
+}
+
+#popupModal {
+    width: max-content;
+    background-color:#f1f1f1;
+    padding: 24px;
+    border-radius: 10px;
+    display: flex;
+    justify-content: center;
+    margin: auto;
+    margin-top: -20px;
+}
+
+.close {
+    font-size: 25px;
+}
+
+.close:hover {
+    color: #333;
+    cursor: pointer;
+}
+
+#publicRoom,
+#privateRoom {
+    background-color: #04AA6D;
+    color: white;
+    padding: 12px;
+    border: none;
+    cursor: pointer;
+    border-radius: 5px;
+    text-align: center;
+    margin-right: 10px;
+}
+
+#publicRoom:hover,
+#privateRoom:hover{
+    background-color: #00925d;
+}
+
+.container {
+    background-color: rgb(117, 198, 173);
+    padding: 24px;
+    width: 992px;
+    height: 700px;
+    margin: auto;
+    margin-top: 3%;
+    display: none; /* initially hidden */
+    flex-direction: row;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.sidebar {
+    width: 25%;
+    border-right: 1px solid #333;
+    padding-right: 24px;
+}
+
+.chat-container {
+    width: 75%;
+    padding: 0 24px;
+    display: flex;
+    flex-direction: column;
+}
+
+#disconnectBtn,
+#joinBtn,
+#sendBtn {
+    background-color: #04AA6D;
+    color: white;
+    padding: 10px;
+    border: none;
+    cursor: pointer;
+    border-radius: 5px;
+    text-align: center;
+    font-size: 12px;
+    margin-right: 10px;
+}
+
+#disconnectBtn:hover,
+#joinBtn:hover,
+#sendBtn:hover {
+    background-color: #00925d;
+}
+
+#chatlog {
+    flex: 1;
+    overflow-y: auto;
+    margin-bottom: 10px;
+    background-color: #bbe9d8;
+    padding: 24px;
+}
+
+.input-box {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+    align-items: center;
+    margin-top: auto;
+}

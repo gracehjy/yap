@@ -70,7 +70,8 @@ h5 {
 }
 
 /* The search field */
-#myInput {
+#loginMyInput,
+#chatMyInput {
     box-sizing: border-box;
     padding: 10px;
     border: 1px solid #ddd;
@@ -194,8 +195,7 @@ h5 {
 }
 
 #disconnectBtn,
-#joinBtn,
-#sendBtn {
+#joinBtn {
     background-color: #04AA6D;
     color: white;
     padding: 10px;
@@ -205,6 +205,18 @@ h5 {
     text-align: center;
     font-size: 12px;
     margin-right: 10px;
+}
+
+#sendBtn {
+    background-color: #04AA6D;
+    color: white;
+    padding: 10.5px;
+    border: none;
+    cursor: pointer;
+    border-radius: 5px;
+    text-align: center;
+    font-size: 12px;
+    margin-bottom: 5px;
 }
 
 #disconnectBtn:hover,

@@ -20,9 +20,9 @@
                 <input type="text" id="create" name="create"><br>
                 <h5>Already have a room in mind? Join an existing room below:</h5>
                 <div class="dropdown">
-                    <button type="button" onclick="toggleDropdown(event)" class="dropdownBtn">Join A Room</button>
-                    <div id="roomDropdown" class="dropdown-content">
-                        <input type="text" placeholder="Search..." id="myInput" onkeyup="filterRooms()">
+                    <button type="button" onclick="toggleDropdown(event, 'loginDropdown')" class="dropdownBtn">Join A Room</button>
+                    <div id="loginDropdown" class="dropdown-content">
+                        <input type="text" placeholder="Search..." id="loginMyInput" onkeyup="filterRooms('loginMyInput')">
                     </div>
                     <input type="text" id="selectedRoom" style="display: none; margin-top: 15px;" disabled>
                 </div>
@@ -50,7 +50,10 @@
     <div class="container" style="display: none;">
         <div class="sidebar">
             <button id="disconnectBtn">Disconnect</button>
-            <button id="joinBtn">Join A New Room</button>
+            <button type="button" onclick="toggleDropdown(event, 'chatDropdown')" id="joinBtn">Join A New Room</button>
+            <div id="chatDropdown" class="dropdown-content">
+                <input type="text" placeholder="Search..." id="chatMyInput" onkeyup="filterRooms('chatMyInput')">
+            </div>
             <h5>Active Users:</h5>
             <div class="users"></div>
         </div>
@@ -67,10 +70,16 @@
     <script>
         const socket = io();
 
+        let currentRoom = ''; // track the current room the user is in
+
         // listen for 'roomList' call from the server that will return the keys in roomList{} to us
         socket.on('roomList', (rooms) => {
-            const roomDropdown = document.getElementById('roomDropdown');
-            roomDropdown.innerHTML = '<input type="text" placeholder="Search..." id="myInput" onkeyup="filterRooms()">';
+            const loginRoomDropdown = document.getElementById('loginDropdown');
+            const chatRoomDropdown = document.getElementById('chatDropdown');
+
+            // clear both dropdowns and add the search input back
+            loginRoomDropdown.innerHTML = '<input type="text" placeholder="Search..." id="loginMyInput" onkeyup="filterRooms(\'loginMyInput\')">';
+            chatRoomDropdown.innerHTML = '<input type="text" placeholder="Search..." id="chatMyInput" onkeyup="filterRooms(\'chatMyInput\')">';
             
             // create a link for every room name in roomList{} and show the room in the dropdown
             rooms.forEach(room => {
@@ -81,52 +90,67 @@
                     const selectedRoom = document.getElementById('selectedRoom')
                     selectedRoom.placeholder = "Room Selected: " + roomLink.textContent;
                     selectedRoom.style.display = 'block';
-                    roomDropdown.classList.remove('show');
+                    loginRoomDropdown.classList.remove('show');
                 });
-                roomDropdown.appendChild(roomLink);
+                loginRoomDropdown.appendChild(roomLink);
+
+                // Also add to chatRoomDropdown
+                const chatRoomLink = roomLink.cloneNode(true);
+                chatRoomLink.addEventListener('click', () => {
+                    chatRoomDropdown.classList.remove('show');
+                    const username = document.getElementById('username').value;
+                    socket.disconnect();
+                    clearChatLog();
+                    socket.connect();
+                    socket.emit('joinRoom', {username, room});
+                    currentRoom = room;
+                });
+                chatRoomDropdown.appendChild(chatRoomLink);
             });
         });
 
         // function to toggle the room dropdown menu
-        function toggleDropdown(event) {
+        function toggleDropdown(event, dropdownId) {
             event.stopPropagation(); // prevents further propagation of the current event (from mdn web docs)
-            var dropdown = document.getElementById("roomDropdown");
+            var dropdown = document.getElementById(dropdownId);
             dropdown.classList.toggle('show');
             if (dropdown.classList.contains('show')) {
                 // make a 'getRooms' call to the server
-                socket.emit('getRooms');
+                socket.emit('getRooms', currentRoom);
             }
         }
 
         // function to close the dropdown if the user clicked out of it
         function closeDropdownOnOutsideClick(event) {
-            var dropdown = document.getElementById("roomDropdown");
-            if (!dropdown.contains(event.target) && dropdown.classList.contains('show')) {
-                dropdown.classList.remove('show');
+            const loginRoomDropdown = document.getElementById("loginRoomDropdown");
+            const chatRoomDropdown = document.getElementById("chatRoomDropdown");
+
+            if (!loginRoomDropdown.contains(event.target) && loginRoomDropdown.classList.contains('show')) {
+                loginRoomDropdown.classList.remove('show');
+            }
+
+            if (!chatRoomDropdown.contains(event.target) && chatRoomDropdown.classList.contains('show')) {
+                chatRoomDropdown.classList.remove('show');
             }
         }
 
         document.addEventListener("click", closeDropdownOnOutsideClick);
 
         // Function to filter rooms
-        function filterRooms() {
-            var input, filter, ul, li, a, i;
-            input = document.getElementById("myInput");
-            filter = input.value.toUpperCase();
-            var roomSelect = document.getElementById("room-select");
-            var options = roomSelect.getElementsByTagName("option");
-            for (i = 0; i < options.length; i++) {
-                var txtValue = options[i].textContent || options[i].innerText;
+        function filterRooms(inputId) {
+            const input = document.getElementById(inputId);
+            const filter = input.value.toUpperCase();
+            const dropdown = input.parentNode;
+            const links = dropdown.getElementsByTagName("a");
+            for (let i = 0; i < links.length; i++) {
+                const txtValue = links[i].textContent || links[i].innerText;
                 if (txtValue.toUpperCase().indexOf(filter) > -1) {
-                    options[i].style.display = "";
+                    links[i].style.display = "";
                 } else {
-                    options[i].style.display = "none";
+                    links[i].style.display = "none";
                 }
             }
         }
-
-        // Attach filterRooms function to the input event
-        document.getElementById('myInput').addEventListener('input', filterRooms);
 
         // event listener for when the user clicks on the submit button in the form
         document.getElementById('loginForm').addEventListener('submit', (e) => {
@@ -153,6 +177,7 @@
             } else {
                 const room = selectedRoom;
                 socket.emit('joinRoom', {username, room});
+                currentRoom = room;
                 goToChat();
             }
         });
@@ -168,6 +193,7 @@
             const { username, createRoom } = window.tempUserData;
             socket.emit('createRoom', { username, room: createRoom, isPublic: true });
             closeModal(); // call closeModal to hide everything in the modal
+            currentRoom = createRoom;
             goToChat(); // go to chat.html
         });
 
@@ -183,6 +209,7 @@
             const { username, createRoom } = window.tempUserData;
             socket.emit('createRoom', { username, room: createRoom, isPublic: false, password });
             closeModal(); // call closeModal to hide everything in the modal
+            currentRoom = createRoom;
             goToChat(); // go to chat.html
         });
 
@@ -201,53 +228,99 @@
         }
 
         // CHAT ROOM SCRIPTS
-        // Handle incoming messages
+        // listen for a 'message' call from the server
         socket.on('message', (message) => {
             displayMessage(message);
         });
 
-        // Send message on button click
+        // event listener for the send button --> when clicked, make a call to 'chatMessage' with the inputted text
         const sendBtn = document.getElementById('sendBtn');
         const messageInput = document.getElementById('message-input');
-        
         sendBtn.addEventListener('click', (e) => {
             e.preventDefault();
             const message = messageInput.value;
             if (message.trim()) {
                 socket.emit('chatMessage', message);
-                messageInput.value = ''; // Clear the input
+                messageInput.value = ''; // clear the input box
             }
         });
 
-        // Listen for 'updateUserList' call from the server
+        // event listener for triggering the send button on Enter
+        messageInput.addEventListener('keypress', (e) => {
+            if(e.key == 'Enter') {
+                event.preventDefault();
+                sendBtn.click();
+            }
+        })
+
+        // listen for the 'updateUserList' call from the server to update the users shown in a room
         socket.on('updateUserList', (users) => {
             const usersDiv = document.querySelector('.users');
             usersDiv.innerHTML = ''; // Clear the list
             users.forEach(user => {
                 const userElement = document.createElement('div');
                 userElement.textContent = user;
+                userElement.style.fontSize = "12px";
                 usersDiv.appendChild(userElement);
             });
         });
 
-        // Add event listener for the disconnect button
+        // event listener for the disconnect button
         const disconnectBtn = document.getElementById('disconnectBtn');
         if (disconnectBtn) {
             disconnectBtn.addEventListener('click', () => {
                 socket.disconnect();
+                clearChatLog(); // clear chat log for the user
+                socket.connect();
                 document.querySelector('.index').style.display = 'block';
                 document.querySelector('.container').style.display = 'none';
             });
         }
 
+        // function to clear the chat log
+        function clearChatLog() {
+            const chatlog = document.getElementById('chatlog');
+            chatlog.innerHTML = ''; // clear the chat log content
+        }
 
+        // function to add a div containing a message to the chatlog div
         function displayMessage(message) {
             console.log(message);
             const chatlog = document.getElementById('chatlog');
-            const messageElement = document.createElement('div');
-            messageElement.textContent = message;
-            chatlog.appendChild(messageElement);
-            chatlog.scrollTop = chatlog.scrollHeight; // Scroll to the bottom
+
+            // create a div for the message container
+            const messageContainer = document.createElement('div');
+            messageContainer.style.background = '#e6e6e6';
+            messageContainer.style.padding = '10px';
+            messageContainer.style.borderRadius = '5px';
+            messageContainer.style.fontSize = '12px';
+            messageContainer.style.margin= '5px';
+            messageContainer.style.display = 'flex';
+
+            // create a div for the time
+            const timeDiv = document.createElement('div');
+            timeDiv.style.color = '#999';
+            timeDiv.style.height = 'max-content';
+            timeDiv.style.whiteSpace = 'nowrap';
+            timeDiv.style.width = '85px';
+            timeDiv.style.textAlign = 'left';
+            timeDiv.style.flexShrink = '0'; // prevent the timeDiv from shrinking
+            const time = new Date().toLocaleTimeString();
+            timeDiv.textContent = time;
+
+            // create a div for the message
+            const messageDiv = document.createElement('div');
+            messageDiv.textContent = message;
+            messageDiv.style.wordWrap = 'break-word';
+            messageDiv.style.hyphens = 'auto';
+
+            // append both spans to the message div
+            messageContainer.appendChild(timeDiv);
+            messageContainer.appendChild(messageDiv);
+
+            // append message div to the chatlog
+            chatlog.appendChild(messageContainer);
+            chatlog.scrollTop = chatlog.scrollHeight; // scroll to the bottom
         }
     </script>
 </body>

@@ -71,6 +71,14 @@
         const socket = io();
 
         let currentRoom = ''; // track the current room the user is in
+        let usernames = {}; // track all usernames
+
+        socket.on('userList', (users) => {
+            usernames = {}; // clear all usernames
+            users.forEach(user => {
+                usernames[user] = true;
+            })
+        })
 
         // listen for 'roomList' call from the server that will return the keys in roomList{} to us
         socket.on('roomList', (rooms) => {
@@ -88,22 +96,29 @@
                 roomLink.addEventListener('click', () => {
                     // show the room name in a input box if clicked on
                     const selectedRoom = document.getElementById('selectedRoom')
-                    selectedRoom.placeholder = "Room Selected: " + roomLink.textContent;
-                    selectedRoom.style.display = 'block';
+                    if (room !== 'N/A') {
+                        selectedRoom.placeholder = "Room Selected: " + roomLink.textContent;
+                        selectedRoom.style.display = 'block';
+                    } else {
+                        selectedRoom.placeholder = "";
+                        selectedRoom.style.display = 'none';
+                    }
                     loginRoomDropdown.classList.remove('show');
                 });
                 loginRoomDropdown.appendChild(roomLink);
 
-                // Also add to chatRoomDropdown
+                // also add to chatRoomDropdown
                 const chatRoomLink = roomLink.cloneNode(true);
                 chatRoomLink.addEventListener('click', () => {
+                    if(room !== 'N/A') {
+                        const username = document.getElementById('username').value;
+                        socket.disconnect();
+                        clearChatLog();
+                        socket.connect();
+                        socket.emit('joinRoom', {username, room});
+                        currentRoom = room;
+                    }
                     chatRoomDropdown.classList.remove('show');
-                    const username = document.getElementById('username').value;
-                    socket.disconnect();
-                    clearChatLog();
-                    socket.connect();
-                    socket.emit('joinRoom', {username, room});
-                    currentRoom = room;
                 });
                 chatRoomDropdown.appendChild(chatRoomLink);
             });
@@ -122,8 +137,8 @@
 
         // function to close the dropdown if the user clicked out of it
         function closeDropdownOnOutsideClick(event) {
-            const loginRoomDropdown = document.getElementById("loginRoomDropdown");
-            const chatRoomDropdown = document.getElementById("chatRoomDropdown");
+            const loginRoomDropdown = document.getElementById("loginDropdown");
+            const chatRoomDropdown = document.getElementById("chatDropdown");
 
             if (!loginRoomDropdown.contains(event.target) && loginRoomDropdown.classList.contains('show')) {
                 loginRoomDropdown.classList.remove('show');
@@ -136,7 +151,7 @@
 
         document.addEventListener("click", closeDropdownOnOutsideClick);
 
-        // Function to filter rooms
+        // function to filter rooms
         function filterRooms(inputId) {
             const input = document.getElementById(inputId);
             const filter = input.value.toUpperCase();
@@ -165,21 +180,29 @@
             if (createRoom && selectedRoom) {
                 alert('Please either create a new room or join an existing room, not both.');
                 return;
-            } else if (!createRoom && !selectedRoom) {
+            } else if (!createRoom && (!selectedRoom || selectedRoom === '')) {
                 alert('Please either create a new room or join an existing room.');
                 return;
             }
 
-            // if the user is creating a new room, show the popupModal. otherwise, make a 'joinRoom' call to the server
-            if (createRoom) {
-                document.getElementById('popupModal').style.display = 'block';
-                window.tempUserData = {username, createRoom};
-            } else {
-                const room = selectedRoom;
-                socket.emit('joinRoom', {username, room});
-                currentRoom = room;
-                goToChat();
-            }
+            // ensure usernames are unique
+            socket.emit('getUsers')
+            socket.once('userList', (users) => {
+                if (users.includes(username)) {
+                    alert('Sorry, that username is already taken. Please input a different username.');
+                } else {
+                    // if the user is creating a new room, show the popupModal. otherwise, make a 'joinRoom' call to the server
+                    if (createRoom) {
+                        document.getElementById('popupModal').style.display = 'block';
+                        window.tempUserData = {username, createRoom};
+                    } else {
+                        const room = selectedRoom;
+                        socket.emit('joinRoom', {username, room});
+                        currentRoom = room;
+                        goToChat();
+                    }
+                }
+            });
         });
 
         // if the close markup is clicked on in the modal, hide the modal

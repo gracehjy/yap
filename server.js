@@ -22,7 +22,8 @@ server.listen(PORT, () => {
 
 const userList = {}; //keeps track of username to room mapping
 const roomList = {
-    'Test Room': {isPublic: false, password: null, users: []},
+    'N/A': {isPublic : false, password: null, users: []},
+    'Lobby': {isPublic: false, password: null, users: []},
 };
 
 io.on('connection', socket => {
@@ -31,6 +32,11 @@ io.on('connection', socket => {
     socket.on('getRooms', (currentRoom) => {
         const rooms = Object.keys(roomList).filter(room => room !== currentRoom);
         socket.emit('roomList', rooms);
+    });
+
+    socket.on('getUsers', () => {
+        const users = Object.values(userList).map(user => user.username);
+        socket.emit('userList', users);
     });
 
     socket.on('createRoom', ({username, room, isPublic, password}) => {
@@ -53,9 +59,9 @@ io.on('connection', socket => {
             userList[socket.id] = {username, room};
             socket.join(room);
             socket.emit('message', `ChatBot: Welcome, ${username}, to ${room}!`);
-            // Broadcast to the room that a new user has joined
+            // broadcast to the room that a new user has joined
             socket.broadcast.to(room).emit('message', `ChatBot: ${username} has joined the room!`);
-            // Send the updated list of users to the room
+            // send the updated list of users to the room
             io.to(room).emit('updateUserList', roomList[room].users);
         } else {
             socket.emit('error', 'Sorry, that room does not exist.');
@@ -64,8 +70,8 @@ io.on('connection', socket => {
 
     socket.on('chatMessage', (message) => {
         const user = userList[socket.id];
-        const userRoom = user.room;
-        if (userRoom) {
+        if (user) {
+            const userRoom = user.room;
             io.to(userRoom).emit('message', `${user.username}: ${message}`);
         }
     });
@@ -74,13 +80,10 @@ io.on('connection', socket => {
         const user = userList[socket.id];
         if (user) {
             socket.leave(user.room);
-            // Remove user from room
             roomList[user.room].users = roomList[user.room].users.filter(username => username !== user.username);
-            // Broadcast to the room that a user has left
             socket.broadcast.to(user.room).emit('message', `ChatBot: ${user.username} has left the room D:`);
-            // Send the updated list of users to the room
             io.to(user.room).emit('updateUserList', roomList[user.room].users);
-            delete user;
+            delete userList[socket.id];
         }
         console.log('A user disconnected:', socket.id);
     });

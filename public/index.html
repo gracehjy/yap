@@ -112,11 +112,7 @@
                 chatRoomLink.addEventListener('click', () => {
                     if(room !== 'N/A') {
                         const username = document.getElementById('username').value;
-                        socket.disconnect();
-                        clearChatLog();
-                        socket.connect();
-                        socket.emit('joinRoom', {username, room});
-                        currentRoom = room;
+                        socket.emit('requestJoinRoom', {username, room});
                     }
                     chatRoomDropdown.classList.remove('show');
                 });
@@ -197,12 +193,29 @@
                         window.tempUserData = {username, createRoom};
                     } else {
                         const room = selectedRoom;
-                        socket.emit('joinRoom', {username, room});
-                        currentRoom = room;
-                        goToChat();
+                        socket.emit('requestJoinRoom', {username, room});
                     }
                 }
             });
+        });
+
+        socket.on('requestPassword', (room) => {
+            const password = prompt("This room is private. Please enter the room's password:");
+            const username = document.getElementById('username').value;
+            socket.emit('joinRoom', {username, room, password});
+        });
+
+        socket.on('joinRoomClient', ({username, room, password}) => {
+            socket.disconnect();
+            clearChatLog();
+            socket.connect();
+            socket.emit('joinRoom', {username, room, password})
+        });
+
+        socket.on('goToChatRoom', (room) =>{
+            clearChatLog();
+            currentRoom = room;
+            goToChat();
         });
 
         // if the close markup is clicked on in the modal, hide the modal
@@ -229,6 +242,7 @@
         // in the modal, if the confirm room box is clicked, send a 'createRoom' call to the server with isPublic set to false and password set to what the user inputted
         document.getElementById('confirmRoom').addEventListener('click', () => {
             const password = document.getElementById('roomPassword').value;
+            console.log(password);
             const { username, createRoom } = window.tempUserData;
             socket.emit('createRoom', { username, room: createRoom, isPublic: false, password });
             closeModal(); // call closeModal to hide everything in the modal
@@ -345,6 +359,10 @@
             chatlog.appendChild(messageContainer);
             chatlog.scrollTop = chatlog.scrollHeight; // scroll to the bottom
         }
+
+        socket.on('error', (errorMessage) => {
+            alert(errorMessage);
+        })
     </script>
 </body>
 </html>

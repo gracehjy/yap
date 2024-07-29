@@ -22,8 +22,8 @@ server.listen(PORT, () => {
 
 const userList = {}; //keeps track of username to room mapping
 const roomList = {
-    'N/A': {isPublic : false, password: null, users: []},
-    'Lobby': {isPublic: false, password: null, users: []},
+    'N/A': {isPublic : true, password: null, users: []},
+    'Lobby': {isPublic: true, password: null, users: []},
 };
 
 io.on('connection', socket => {
@@ -53,8 +53,32 @@ io.on('connection', socket => {
         }
     })
 
-    socket.on('joinRoom', ({username, room}) => {
+    socket.on('requestJoinRoom', ({username, room}) => {
+        if(roomList[room]){
+            if(!roomList[room].isPublic) {
+                socket.emit('requestPassword', room);
+            } else {
+                socket.emit('joinRoomClient', {username, room, password: null});
+            }
+        } else {
+            socket.emit('error', 'Sorry, that room does not exist.');
+        }
+    })
+
+    socket.on('joinRoom', ({username, room, password}) => {
+        const currentRoom = userList[socket.id]?.room;
         if(roomList[room]) {
+            if(!roomList[room].isPublic && roomList[room].password !== password) {
+                socket.emit('error', 'Incorrect password.');
+                return;
+            }
+            if (currentRoom) {
+                roomList[currentRoom].users = roomList[currentRoom].users.filter(user => user !== username);
+                io.to(currentRoom).emit('updateUserList', roomList[currentRoom].users);
+                socket.leave(currentRoom);
+                socket.broadcast.to(currentRoom).emit('message', `ChatBot: ${username} has left the room D:`);
+            }
+            socket.emit('goToChatRoom', room);
             roomList[room].users.push(username);
             userList[socket.id] = {username, room};
             socket.join(room);

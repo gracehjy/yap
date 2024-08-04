@@ -45,7 +45,7 @@ io.on('connection', socket => {
             userList[socket.id] = {username, room};
             roomList[room].users.push(username)
             socket.join(room);
-            socket.emit('message', `ChatBot: Welcome, ${username}, to ${room}!`);
+            socket.emit('message',  { type: 'public', text: `ChatBot: Welcome, ${username}, to ${room}!`});
             io.to(room).emit('updateUserList', roomList[room].users);
             console.log(username, "created", room);
         } else {
@@ -74,19 +74,25 @@ io.on('connection', socket => {
             }
             if (currentRoom) {
                 roomList[currentRoom].users = roomList[currentRoom].users.filter(user => user !== username);
-                io.to(currentRoom).emit('updateUserList', roomList[currentRoom].users);
+                io.to(currentRoom).emit('updateUserList', roomList[currentRoom].users.map(user => {
+                    const userSocketId = Object.keys(userList).find(id => userList[id].username === user);
+                    return { username: user, userSocketId };
+                }));
                 socket.leave(currentRoom);
-                socket.broadcast.to(currentRoom).emit('message', `ChatBot: ${username} has left the room D:`);
+                socket.broadcast.to(currentRoom).emit('message',  { type: 'public', text: `ChatBot: ${username} has left the room D:`});
             }
             socket.emit('goToChatRoom', room);
             roomList[room].users.push(username);
             userList[socket.id] = {username, room};
             socket.join(room);
-            socket.emit('message', `ChatBot: Welcome, ${username}, to ${room}!`);
+            socket.emit('message',  { type: 'public', text: `ChatBot: Welcome, ${username}, to ${room}!`});
             // broadcast to the room that a new user has joined
-            socket.broadcast.to(room).emit('message', `ChatBot: ${username} has joined the room!`);
+            socket.broadcast.to(room).emit('message',  { type: 'public', text: `ChatBot: ${username} has joined the room!`});
             // send the updated list of users to the room
-            io.to(room).emit('updateUserList', roomList[room].users);
+            io.to(room).emit('updateUserList', roomList[room].users.map(user => {
+                const userSocketId = Object.keys(userList).find(id => userList[id].username === user);
+                return { username: user, userSocketId };
+            }));
         } else {
             socket.emit('error', 'Sorry, that room does not exist.');
         }
@@ -96,17 +102,26 @@ io.on('connection', socket => {
         const user = userList[socket.id];
         if (user) {
             const userRoom = user.room;
-            io.to(userRoom).emit('message', `${user.username}: ${message}`);
+            io.to(userRoom).emit('message', { type: 'public', text: `${user.username}: ${message}` });
         }
+    });
+    
+    socket.on('privateMessage', ({ to, message }) => {
+        const fromUser = userList[socket.id].username;
+        io.to(to).emit('privateMessage', { from: fromUser, message });
+        socket.emit('privateMessageSent', { to, message });
     });
 
     socket.on('disconnect', () => {
         const user = userList[socket.id];
         if (user) {
+            socket.broadcast.to(user.room).emit('message',  { type: 'public', text: `ChatBot: ${user.username} has left the room D:`});
             socket.leave(user.room);
             roomList[user.room].users = roomList[user.room].users.filter(username => username !== user.username);
-            socket.broadcast.to(user.room).emit('message', `ChatBot: ${user.username} has left the room D:`);
-            io.to(user.room).emit('updateUserList', roomList[user.room].users);
+            io.to(user.room).emit('updateUserList', roomList[user.room].users.map(user => {
+                const userSocketId = Object.keys(userList).find(id => userList[id].username === user);
+                return { username: user, userSocketId };
+            }));
             delete userList[socket.id];
         }
         console.log('A user disconnected:', socket.id);

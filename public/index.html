@@ -71,8 +71,10 @@
         const socket = io();
 
         let currentRoom = ''; // track the current room the user is in
+        let currentUser = ''; // track the current user
         let usernames = {}; // track all usernames
-
+        let socketIdToUsername = {}; // map to keep track of socket IDs to usernames
+        
         socket.on('userList', (users) => {
             usernames = {}; // clear all usernames
             users.forEach(user => {
@@ -194,6 +196,7 @@
                     } else {
                         const room = selectedRoom;
                         socket.emit('requestJoinRoom', {username, room});
+                        currentUser = username;
                     }
                 }
             });
@@ -209,6 +212,7 @@
             socket.disconnect();
             clearChatLog();
             socket.connect();
+            currentUser = username;
             socket.emit('joinRoom', {username, room, password})
         });
 
@@ -229,6 +233,7 @@
             const { username, createRoom } = window.tempUserData;
             socket.emit('createRoom', { username, room: createRoom, isPublic: true });
             closeModal(); // call closeModal to hide everything in the modal
+            currentUser = username;
             currentRoom = createRoom;
             goToChat(); // go to chat.html
         });
@@ -246,6 +251,7 @@
             const { username, createRoom } = window.tempUserData;
             socket.emit('createRoom', { username, room: createRoom, isPublic: false, password });
             closeModal(); // call closeModal to hide everything in the modal
+            currentUser = username;
             currentRoom = createRoom;
             goToChat(); // go to chat.html
         });
@@ -267,7 +273,11 @@
         // CHAT ROOM SCRIPTS
         // listen for a 'message' call from the server
         socket.on('message', (message) => {
-            displayMessage(message);
+            if (message.type === 'private') {
+                displayMessage(`Private message from ${message.from}: ${message.text}`);
+            } else {
+                displayMessage(message.text);
+            }
         });
 
         // event listener for the send button --> when clicked, make a call to 'chatMessage' with the inputted text
@@ -293,19 +303,55 @@
         // listen for the 'updateUserList' call from the server to update the users shown in a room
         socket.on('updateUserList', (users) => {
             const usersDiv = document.querySelector('.users');
-            usersDiv.innerHTML = ''; // Clear the list
+            usersDiv.innerHTML = ''; // clear the list
+            socketIdToUsername = {}; // clear the map
+
             users.forEach(user => {
-                const userElement = document.createElement('div');
-                userElement.textContent = user;
+                socketIdToUsername[user.userSocketId] = user.username; // populate the map
+                const userElement = document.createElement('a');
+                userElement.textContent = user.username;
+                userElement.href = '#';
                 userElement.style.fontSize = "12px";
+
+                // create a link to PM other users
+                if(user.username !== currentUser) {
+                    userElement.textContent = userElement.textContent + ' (PM)';
+                    userElement.addEventListener('click', () => {
+                        const message = prompt(`Send a private message to ${user.username}:`);
+                        if (message) {
+                            socket.emit('privateMessage', { to: user.userSocketId, message });
+                        }
+                    });
+                } else {
+                    userElement.style.color = 'grey';
+                    userElement.style.cursor = 'default';
+                    userElement.style.textDecoration = 'none';
+                    userElement.textContent = userElement.textContent + ' (YOU)';
+                }
                 usersDiv.appendChild(userElement);
+                const lineBreak = document.createElement('br');
+                usersDiv.appendChild(lineBreak);
             });
+        });
+
+        // listen for a 'privateMessage' call from the server
+        socket.on('privateMessage', ({ from, message }) => {
+            displayMessage(`Private message from ${from}: ${message}`);
+        });
+
+        // listen for a 'privateMessageSent' call from the server
+        socket.on('privateMessageSent', ({ to, message }) => {
+            const recipientUsername = socketIdToUsername[to];
+            if(recipientUsername) {
+                displayMessage(`Private message to ${recipientUsername}: ${message}`);
+            }
         });
 
         // event listener for the disconnect button
         const disconnectBtn = document.getElementById('disconnectBtn');
         if (disconnectBtn) {
             disconnectBtn.addEventListener('click', () => {
+                currentRoom = ''; // set currentRoom to be empty
                 socket.disconnect();
                 clearChatLog(); // clear chat log for the user
                 socket.connect();
@@ -360,6 +406,7 @@
             chatlog.scrollTop = chatlog.scrollHeight; // scroll to the bottom
         }
 
+        // listen for an 'error' call from the server
         socket.on('error', (errorMessage) => {
             alert(errorMessage);
         })
